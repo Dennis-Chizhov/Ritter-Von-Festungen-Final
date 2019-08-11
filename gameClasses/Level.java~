@@ -1,0 +1,179 @@
+/*
+ * [Level.java]
+ * File containing a game level which is basically a fancy JPanel.
+ * Author: Andy Wang
+ * Started on 3 Jan 2019
+ */
+
+/** Classes that the game uses. */
+package gameClasses;
+
+import javax.swing.JPanel;
+
+import javax.imageio.ImageIO;
+
+import java.awt.Graphics;
+
+import java.awt.Color;
+import java.awt.Font;
+
+import java.io.File;
+import java.io.IOException;
+
+/**
+ * The Level class represents an in-game level.
+ * @author Andy Wang
+ * @since 3 Jan 2019
+ */
+public class Level extends JPanel {
+    /** Gravity in pixels per second. */
+    public static final int GRAVITY = 3500;
+    /** The message displayed when someone wins. */
+    public static final String WIN_MESSAGE = "WINNER WINNER CHICKEN DINNER!";
+    
+    private int fps; //frames per second
+    private double deltaTime = 0; //seconds since the last frame. stolen from Unity xd
+    private long now;
+    
+    private Stage[] stages = new Stage[5];
+    private int currentStageIndex = 2;
+    
+    /** When a player wins, this is the direction in which the player must move. This cann display other things as well. */
+    protected String moveDirection = "";
+    
+    /**
+     * This constructor creates a game level.
+     * @param levelName The name of the level.
+     */
+    Level (String levelName) { String stageBGs = "Images/Backgrounds/" + levelName + "/";
+        String stageMaps = "TileMaps/" + levelName + "/";
+            
+        for (int i = 0; i < 5; i++) {
+            /* We used to use .listFiles (), but on Dennis's PC, the files were listed out of order. */
+            String imageName = stageBGs + Integer.toString (i) + "_" + levelName + ".png";
+            String mapName = stageMaps + Integer.toString (i) + "_" + levelName + ".txt";
+            try {
+                this.stages [i] = new Stage (new File (mapName), ImageIO.read (new File (imageName)), this);
+            } catch (IOException e) {
+                System.out.println ("LMAO ur screwed m8, there was a problem loading the stage.");
+            }
+        }
+    } 
+    
+    /**
+     * paintComponent draws all the graphics to the screen.
+     * @param g The Graphics object to use.
+     */
+    @Override public void paintComponent (Graphics g) {
+        long temp;
+        
+        g.drawImage (this.getCurrentStage ().getBG (), 0, 0, null);
+        this.getCurrentStage ().drawAll (g);
+        this.getCurrentStage ().step ();
+        
+        g.setFont (new Font ("Arial", Font.PLAIN, 20));
+        g.setColor (Color.GREEN);
+        g.drawString (Integer.toString (fps), 20, 40); 
+        
+        if ((getCurrentStage ().getLeftPlayer ().isDead ()) && (getCurrentStage ().getRightPlayer ().isDead ())) { //check for tie first
+            g.setFont (new Font ("Arial", Font.ITALIC, 60));
+            g.setColor (new Color (255, 127, 0));
+            g.drawString ("TIE!", (PlatformerGame.WIDTH / 2) - 100, PlatformerGame.HEIGHT / 2);
+        } else if (moveDirection.equals (Level.WIN_MESSAGE)) {
+            g.setFont (new Font ("Arial", Font.ITALIC, 60));
+            g.setColor (new Color (255, 0, 255));
+            g.drawString (Level.WIN_MESSAGE, (PlatformerGame.WIDTH / 2) - 500, PlatformerGame.HEIGHT / 2);
+        } else if (!moveDirection.equals ("")) {
+            g.setFont (new Font ("Arial", Font.PLAIN, 60));
+            g.setColor (Color.WHITE);
+            g.drawString ("GO " + moveDirection, 10, PlatformerGame.HEIGHT - 40);
+        } 
+        
+        try {
+            Thread.sleep (10);
+        } catch (Exception e) {}
+        
+        /* Handle deltaTime */
+        temp = System.nanoTime ();
+        deltaTime = (temp - now) * 0.000000001; //time since last frame in seconds
+        
+        /* Handle FPS */
+        fps = (int) (1 / deltaTime); //fps = seconds / delay
+        now = temp;
+        
+        try {
+            Thread.sleep (1);
+            repaint ();
+        } catch (Exception e) {
+            System.out.println ("Uh oh! Something's terribly wrong!");
+        }
+    }
+    
+    /**
+     * getCurrentStage () returns the current Stage object used by the level.
+     * @return The current Stage.
+     */
+    public Stage getCurrentStage () {
+        return this.stages [this.currentStageIndex];
+    }
+    /**
+     * getStageIndex () returns the current stage's index.
+     * @return The current stage's index.
+     */
+    public int getStageIndex () {
+        return this.currentStageIndex;
+    }
+    /**
+     * getNow returns the time now, as found by Level.
+     * @return Now, in seconds.
+     */
+    public long getNow () {
+        return this.now;
+    }
+    /**
+     * getFPS returns the level's fps.
+     * @return The level's fps.
+     */
+    public int getFPS () {
+        return this.fps;
+    }
+    /**
+     * getDeltaTime returns the time since the level's last frame.
+     * @return The time since the level's last frame in seconds.
+     */
+    public double getDeltaTime () {
+        return this.deltaTime;
+    }
+    /**
+     * startTick initiates the 'now' variable.
+     */
+    public void startTick () {
+        this.now = System.nanoTime ();
+    }
+    /**
+     * stageUp switches the stage so you move right (index goes up).
+     */
+    public void stageUp () {
+        this.currentStageIndex++;
+        this.moveDirection = "";
+        
+        this.getCurrentStage ().resetStage ();
+    } 
+    /**
+     * stageDown switches the stage so you move left (index goes down).
+     */
+    public void stageDown () {
+        this.currentStageIndex--;
+        this.moveDirection = "";
+        
+        this.getCurrentStage ().resetStage ();
+    }
+    /**
+     * resetLevel resets the level.
+     */
+    public void resetLevel () {
+        for (Stage s : this.stages) {
+            s.resetStage ();
+        }
+    }
+}

@@ -1,0 +1,499 @@
+/*
+ * [Player.java]
+ * This file contains a class for the Player, which the user controls.
+ * Author: Andy Wang, Dennis Chizhov
+ * Started on 28 Dec 2018
+ */
+
+/** All classes used in the game other than Main */
+package gameClasses;
+
+import java.awt.event.KeyEvent;
+
+/**
+ * Player represents the Entity that is controlld by the user.
+ * @author Andy Wang
+ * @since 28 Dec 2018
+ */
+public class Player extends Entity implements Moving {
+    private static int JUMP_SPEED = 1100; //jump speed in pixels per second
+    private static int X_SPEED = 500; //walk speed in pps
+    
+    private double xVel = 0, yVel = 0; 
+    private int move, left, right; //used to see which direction the Player should move in
+    private boolean onFloor, up, hasSword = true, isCrouching, isThrowingSword, isHighAttacking, isMidAttacking, isLowAttacking, isHighParrying, isMidParrying, isLowParrying, dead = false;
+    
+    /* Represents the keys that control movement (u = up or jump, l = left, r = right)
+     * throwSword -> key has the player play throwing sprite and spawns a spinning sword entity
+     * attack -> keys have the player do a certain attack at a different level (high, midium or low) to kill other players.
+     * parry -> keys have the player do a certain parry at different level (high, midium or low) to defend against blows.
+     */
+    private char u, l, r, d, throwSword, highAttack, midAttack, lowAttack, highParry, midParry, lowParry;
+    
+    /**
+     * This constructor initializes the Player with a custom name.
+     * @param x The x position of the Player.
+     * @param y The y position of the Player.
+     * @param spr The Sprite of the Player;
+     * @param name The custom name of the Player.
+     * @param up The key for this Player's up movement.
+     * @param left The key for this Player's left movement.
+     * @param right The key for this Player's right movement.
+     * @param stage The stage the Player is drawn on.
+     */
+    Player (int x, int y, Sprite spr, String name, char up, char left, char right, char down, char throwSwordKey, 
+            char highAttackKey, char midAttackKey, char lowAttackKey, char highParryKey, char midParryKey, char lowParryKey, Stage stage) {
+        super (x, y, spr, name, stage);
+        this.u = up;
+        this.l = left;
+        this.r = right;
+        this.d = down;
+        this.throwSword = throwSwordKey;
+        this.highAttack = highAttackKey;
+        this.midAttack = midAttackKey;
+        this.lowAttack = lowAttackKey;
+        this.highParry = highParryKey;
+        this.midParry = midParryKey;
+        this.lowParry = lowParryKey;
+        
+        // FLIP THE RIGHT PLAYER
+        if (name.equals ("Right Player")) {
+            this.sprite.flipped = true;
+        }
+    }
+    /**
+     * isThrowing finds if the player is currently throwing a sword.
+     * @return If the player is throwing a sword.
+     */
+    public boolean isThrowing () {
+        return this.isThrowingSword;
+    }
+    
+    /**
+     * resetPlayer resets the Players to their original positions and state.
+     * @param x The x coordinate to set them to.
+     * @param y The y coordinate to set them to.
+     */
+    public void resetPlayer (int x, int y) {
+        this.x = x;
+        this.y = y;
+        
+        this.left = 0;
+        this.right = 0;
+        
+        this.hasSword = true;
+        this.dead = false;
+        
+        this.sprite.flipped = this.name.equals ("Right Player"); //if this is the right player, flip it
+        
+        this.sprite.frameIndex = 0; //just in case
+    }
+    
+    /**
+     * checkKeysPressed will update the Player's movement based on what keys are pressed.
+     * @param e The KeyEvent to be used.
+     */
+    public void checkKeysPressed (KeyEvent e) {
+        if (e.getKeyCode() == (int) this.l) {
+            this.left = 1;
+        } if (e.getKeyCode () == (int) this.r) {
+            this.right = 1;
+        } if (e.getKeyCode () == (int) this.u) {
+          if (!this.dead) { //prevent player from jumping while death animation is playing
+            this.up = true;
+          }
+        } if (e.getKeyCode () == (int) this.d) {
+            if ((!this.isCrouching) && (this.onFloor) && (!this.isAttacking()) && (!this.isParrying())) {
+                this.isCrouching = true;
+            }
+        } if (e.getKeyCode () == (int) this.throwSword) {
+            if ((!this.isAttacking()) && (this.hasSword)) {
+                this.isThrowingSword = true;
+            }
+        } if (e.getKeyCode () == (int) this.highAttack) {
+            if ((!this.isAttacking()) && (this.hasSword)) {
+                this.isHighAttacking = true;
+                Sound.SWOOSH.play ();
+            }
+        }
+        if (e.getKeyCode () == (int) this.midAttack) {
+            if ((!this.isAttacking()) && (this.hasSword)) {
+                this.isMidAttacking = true;
+                Sound.SWOOSH.play ();
+            }
+        } 
+        if (e.getKeyCode () == (int) this.lowAttack) {
+            if ((!this.isAttacking()) && (this.hasSword)) {
+                this.isLowAttacking = true;
+                Sound.SWOOSH.play ();
+            }
+            
+        } if (e.getKeyCode() == (int) this.highParry) {
+            if ((!isParrying() && (this.onFloor)) && (this.hasSword)) {
+                this.isHighParrying = true;
+            }
+        } if (e.getKeyCode () == (int) this.midParry) {
+            if ((!isParrying() && (this.onFloor)) && (this.hasSword)) {
+                this.isMidParrying = true;
+            }
+        } if (e.getKeyCode () == (int) this.lowParry) {
+            if ((!isParrying() && (this.onFloor)) && (this.hasSword)) {
+                this.isLowParrying = true;
+            }
+        }
+    } 
+    /**
+     * checkKeysReleased will stop the Player's movement depending on which keys are released.
+     * @param e The KeyEvent to be used.
+     */
+    public void checkKeysReleased (KeyEvent e) {
+        if (e.getKeyCode() == (int) this.l) {
+            this.left = 0;
+        } if (e.getKeyCode () == (int) this.r) {
+            this.right = 0;
+        } if (e.getKeyCode () == (int) this.u) {
+            this.up = false;
+        } if (e.getKeyCode () == (int) this.d) {
+            if (this.isCrouching) {
+                this.isCrouching = false;
+            }
+        } if (e.getKeyCode () == (int) this.highParry) {
+            this.isHighParrying = false;
+        } if (e.getKeyCode () == (int) this.midParry) {
+            this.isMidParrying = false;
+        } if (e.getKeyCode () == (int) this.lowParry) {
+            this.isLowParrying = false;
+        }
+    } 
+    /**
+     * The step method updates the Player's movement every step of the program. Sometimes the Player will get stuck
+     * in the corner of an Entity, but that is out of my control.
+     */
+    @Override
+    public void step () {
+        double xVelPPF, yVelPPF; //velocity in pixels per frame
+        double dt = this.stage.level.getDeltaTime ();
+        
+        this.move = this.right - this.left; //1 for right, -1 for left
+        this.xVel = (this.move * X_SPEED); //based on direction
+        this.yVel += Level.GRAVITY * dt; //y velocity is changed by gravity every step
+        
+        onFloor = this.placeMeeting (this.x, this.y + 1, "gameClasses.Tile", "gameClasses.Border"); //if the Player is standing on top of a Tile
+        
+        /* HANDLE JUMPING */
+        if (((onFloor) && (up)) && ((!this.isAttacking()) && (!this.isParrying()) && (!this.isCrouching))) {
+            this.yVel = -JUMP_SPEED; 
+        }
+        
+        xVelPPF = this.xVel * dt;
+        yVelPPF = this.yVel * dt;
+        
+        /* HANDLE X COLLISIONS */
+        if (this.placeMeeting (this.x + xVelPPF, this.y, "gameClasses.Tile", "gameClasses.Border")) { //if moving horizontally will collide with a Tile
+            /* PERFECT PIXEL COLLISION */
+            while (!this.placeMeeting ((int) (this.x + Math.signum (this.xVel)), this.y, "gameClasses.Tile", "gameClasses.Border")) { 
+                this.x += (int) Math.signum (this.xVel); //it keeps moving by 1 pixel left or right until it is BESIDE the Tile
+                //it loops until the Player WILL collide (intersect) with the Tile, resulting in the Player stopping BESIDE it
+            } this.xVel = 0; //if collided, stop moving horizontally
+            xVelPPF = 0;
+        } /* HANDLE Y COLLISIONS */ 
+        if (this.placeMeeting (this.x, this.y + yVelPPF, "gameClasses.Tile", "gameClasses.Border")) { //if moving vertically will collide with a Tile
+            /* PERFECT PIXEL COLLISION */
+            while (!this.placeMeeting (this.x, (int) (this.y + Math.signum (this.yVel)), "gameClasses.Tile", "gameClasses.Border")) {
+                this.y += (int) Math.signum (this.yVel); //it keeps moving by 1 pixel up or down until it is BESIDE the Tile
+                //it loops until the Player WILL collide (intersect) with the Tile, resulting in the Player stopping BESIDE it
+            } this.yVel = 0; //stop moving vertically if collided
+            yVelPPF = 0;
+        }
+        
+        /* IF, FOR WHATEVER REASON THE PLAYER IS STUCK INSIDE A WALL, THIS WILL MOVE IT */
+        if (this.placeMeeting (this.x, this.y, "gameClasses.Tile", "gameClasses.Border")) { //if you are currently stuck
+            int xMoveLeft = 0, xMoveRight = 0;
+            int yMoveUp = 0, yMoveDown = 0;
+            
+            while (this.placeMeeting (this.x + xMoveRight, this.y, "gameClasses.Tile", "gameClasses.Border")) { //check how far right to move
+                xMoveRight++;
+            } while (this.placeMeeting (this.x + xMoveLeft, this.y, "gameClasses.Tile", "gameClasses.Border")) { //check left
+                xMoveLeft--;
+            } this.x += Math.min (Math.abs (xMoveLeft), xMoveRight) == Math.abs (xMoveLeft) ? xMoveLeft : xMoveRight; //take the shortest path
+            
+            while (this.placeMeeting (this.x, this.y + yMoveDown, "gameClasses.Tile", "gameClasses.Border")) { //check how far down to move
+                yMoveDown++;
+            } while (this.placeMeeting (this.x, this.y + yMoveUp, "gameClasses.Tile", "gameClasses.Border")) { //check up
+                yMoveUp--;
+            } this.y += Math.min (Math.abs (yMoveUp), yMoveDown) == Math.abs (yMoveUp) ? yMoveUp : yMoveDown; //take the shortest path
+        }
+        
+        /* IF THE PLAYER FALLS OUT OF THE MAP */
+        if ((!this.dead) && (this.placeMeeting (this.x, this.y + 1, "Bottom Border"))) {
+            this.kill ();
+        }
+        
+        /* HANDLE SPRITES */
+        if (this.dead) {
+            xVelPPF = 0;
+            
+            if (!this.sprite.equals (Sprite.INVIS)) {
+              this.changeSprite ("Die");
+            }
+            
+            if (this.sprite.frameIndex == this.sprite.getLastIndex ()) {
+                this.sprite.frameIndex = 0; //reset the frame index for the static death sprites 
+                this.sprite = Sprite.INVIS;
+            } 
+        } else if (this.isThrowingSword) { //you can throw while in the airr
+            xVelPPF = 0;
+            this.changeSprite ("Throw");
+            
+            if (this.sprite.frameIndex == this.sprite.getLastIndex ()) {
+                this.isThrowingSword = false;
+                this.hasSword = false;
+            }
+        } else if ((!onFloor) && (!this.isCrouching) && (!this.isAttacking()) && (!this.isParrying())) {
+            this.changeSprite ("Jump");
+        } else if (this.isCrouching) { // if crouching, change sprite to crouch animation and stop moving.
+            
+            xVelPPF = 0;
+            this.changeSprite ("Crouch");
+            
+        } else if (this.isAttacking()) {               
+            xVelPPF = 0;
+            if (this.isHighAttacking) {
+                this.changeSprite("High Attack");
+            } else if (this.isMidAttacking) {
+                this.changeSprite("Mid Attack");
+            } else if (this.isLowAttacking) {
+                this.changeSprite("Low Attack");
+            } if (this.sprite.frameIndex == this.sprite.getLastIndex()) {
+                this.isHighAttacking = false;
+                this.isMidAttacking = false;
+                this.isLowAttacking = false;
+            }
+            
+        } else if (this.isParrying()) {
+            xVelPPF = 0;
+            if (this.isHighParrying) {
+                this.changeSprite("High Parry");
+            }
+            else if (this.isMidParrying) {
+                this.changeSprite("Mid Parry");
+            }
+            else if (this.isLowParrying) {
+                this.changeSprite("Low Parry");
+            }
+        } else {
+            if (xVelPPF == 0) {
+                this.changeSprite ("Idle"); 
+            } else {
+                this.changeSprite ("Run");
+            }
+        } if (xVelPPF != 0) { //deal with orientation
+            this.sprite.flipped = (xVelPPF < 0);
+        }
+        
+        /* UPDATE POSITIONS */
+        this.x += xVelPPF;
+        this.y += yVelPPF;
+        
+        this.x = Math.floor (this.x);
+        this.y = Math.floor (this.y);
+        
+        this.updateRect ();
+        
+        /* UPDATE SPRITE */
+        this.sprite.updateImage ();
+        
+        //PROGRESS THRU LEVEL
+        if (this.stage.level.moveDirection.equals ("RIGHT")) {
+            if (this.name.equals ("Left Player")) {
+                if (this.placeMeeting (this.x + 1, this.y, "Right Border")) {
+                    this.stage.level.stageUp ();
+                }
+            }
+        } else if (this.stage.level.moveDirection.equals ("LEFT")) {
+            if (this.name.equals ("Right Player")) {
+                if (this.placeMeeting (this.x - 1, this.y, "Left Border")) {
+                    this.stage.level.stageDown ();
+                }
+            }
+        }
+    }
+    
+    /**
+     * isAttacking() checks if the player is attacking at all
+     */
+    public boolean isAttacking() {
+        return (this.isHighAttacking) || (isMidAttacking) || (isLowAttacking);
+    }
+    
+    /**
+     * isParrying() checks if the player is parrying at all
+     */
+    public boolean isParrying() {
+        return (this.isHighParrying) || (isMidParrying) || (isLowParrying);
+    }
+    /**
+     * This method kills the Player (activates its death animation)
+     */
+    public void kill () {
+        this.dead = true;
+        Sound.DEATH.play ();
+        
+        if (this.name.equals ("Left Player")) {
+            if (this.stage.level.getStageIndex () != 0) {
+                this.stage.level.moveDirection = "LEFT";
+            } else {
+                this.stage.level.moveDirection = Level.WIN_MESSAGE;
+            }
+        } else {
+            if (this.stage.level.getStageIndex () != 4) {
+                this.stage.level.moveDirection = "RIGHT";
+            } else {
+                this.stage.level.moveDirection = Level.WIN_MESSAGE;
+            }
+        }
+    }
+    /**
+     * This method makes the Player pick up a sword.
+     */
+    public void pickUpSword () {
+        this.hasSword = true;
+    }
+    /**
+     * This method sees if the Player is already holding a sword.
+     * @return If this player is already holding a sword.
+     */
+    public boolean hasSword () {
+        return this.hasSword;
+    }
+    /**
+     * This method sees if a player has died.
+     * @return If the player has died.
+     */
+    public boolean isDead () {
+        return this.dead;
+    }
+    
+    /**
+     * changeSprite changes the Player's sprite, but handles which player wants to change it.
+     * @param spr The name of the sprite.
+     */
+    public void changeSprite (String spr) {
+        if (spr.equals ("Idle")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_IDLE);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_IDLE);
+            }
+        } else if (spr.equals ("Run")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_RUN);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_RUN);
+            }
+        } else if (spr.equals ("Crouch")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_CROUCH);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_CROUCH);
+            }
+        } else if (spr.equals ("Jump")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_JUMP);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_JUMP);
+            }
+        } else if (spr.equals ("Die")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_DIE);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_DIE);
+            }
+        } else if (spr.equals ("High Attack")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_ATTACK_HIGH);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_ATTACK_HIGH);
+            }
+        } else if (spr.equals ("Mid Attack")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_ATTACK_MID);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_ATTACK_MID);
+            }
+        } else if (spr.equals ("Low Attack")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_ATTACK_LOW);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_ATTACK_LOW);
+            }
+        } else if (spr.equals ("High Parry")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_PARRY_HIGH);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_PARRY_HIGH);
+            }
+        } else if (spr.equals ("Mid Parry")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_PARRY_MID);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_PARRY_MID);
+            }
+        } else if (spr.equals ("Low Parry")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_PARRY_LOW);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_PARRY_LOW);
+            }
+        } else if (spr.equals ("Throw")) {
+            if (this.name.equals ("Left Player")) {
+                super.changeSprite (Sprite.PLAYER_LEFT_THROW);
+            } else {
+                super.changeSprite (Sprite.PLAYER_RIGHT_THROW);
+            }
+        }
+    }
+    //the folliwing methods are only used in the sword class to handle melee combat
+    /**
+     * highAttacking checks if the player is doing a high attack.
+     * @return If the player is doing a high attack.
+     */
+    public boolean highAttacking () {
+        return this.isHighAttacking;
+    }
+    /**
+     * midAttacking checks if the player is doing a mid attack.
+     * @return If the player is doing a mid attack.
+     */
+    public boolean midAttacking () {
+        return this.isMidAttacking;
+    }
+    /**
+     * leftAttacking () checks if the player is doing a low attack.
+     * @return If the player is doing a low attack.
+     */
+    public boolean lowAttacking () {
+        return this.isLowAttacking;
+    }
+    /**
+     * highParrying () checks if the player is doing a high parry.
+     * @return If the player is doing a high parry.
+     */
+    public boolean highParrying () {
+        return this.isHighParrying;
+    }
+    /**
+     * midParrying () checks if the player is doing a mid parry.
+     * @return If the player is doing a mid parry.
+     */
+    public boolean midParrying () {
+        return this.isMidParrying;
+    }
+    /**
+     * lowParrying () checks if the player is doing a low parry.
+     * @return If the player is doing a low parry.
+     */
+    public boolean lowParrying () {
+        return this.isLowParrying;
+    }
+}

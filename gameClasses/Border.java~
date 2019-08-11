@@ -1,0 +1,8 @@
+/** Classes used for the game. */
+package gameClasses;
+
+public class Border extends Entity {
+    Border (int x, int y, int width, int height, String name, Stage stage) {
+        super (x, y, new Sprite ("Images/Tiles/barrier", width, height), name, stage);
+    }
+}
